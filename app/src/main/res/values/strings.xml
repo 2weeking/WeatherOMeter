@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">Weather-O-Meter</string>
+    <string name="location">Austin, Texas</string>
+    <string name="forecast_description">7-day forecast · Daily average temperature (°F)</string>
+    <string name="average_explanation">Each daily average is calculated from that day’s available hourly temperature forecasts. Dates use Austin’s local time. The forecast begins today.</string>
+    <string name="attribution">Weather data by Open-Meteo\nhttps://open-meteo.com/ · CC BY 4.0</string>
+    <string name="loading">Loading Austin’s forecast…</string>
+    <string name="refreshing">Updating Austin’s forecast…</string>
+    <string name="refresh">Refresh forecast</string>
+    <string name="retry">Try again</string>
+    <string name="updated">Updated %1$s (Austin time)</string>
+    <string name="today_date">Today · %1$s</string>
+    <string name="daily_average">Average: %1$.1f °F</string>
+    <string name="error_network">Could not reach Open-Meteo. Check your internet connection and try again.</string>
+    <string name="error_timeout">The weather request timed out. Please try again.</string>
+    <string name="error_service">Open-Meteo could not provide the forecast (HTTP %1$d). Please try again later.</string>
+    <string name="error_data">Open-Meteo returned incomplete or invalid forecast data. Please try again.</string>
+    <string name="previous_forecast">%1$s\nShowing the previous forecast. %2$s</string>
+</resources>
