@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.appcompat)
     implementation(libs.constraintlayout)
     implementation(libs.material)
+    implementation(libs.viewpager2)
     testImplementation(libs.junit)
     // Android provides org.json on-device; JVM tests need its real implementation.
     testImplementation(libs.json)

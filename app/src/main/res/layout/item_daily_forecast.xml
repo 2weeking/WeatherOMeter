@@ -1,19 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:paddingTop="14dp"
-    android:paddingBottom="14dp">
-    <TextView
-        android:id="@+id/forecast_date"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textAppearance="?attr/textAppearanceTitleMedium" />
-    <TextView
-        android:id="@+id/forecast_temperature"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textAppearance="?attr/textAppearanceBodyLarge" />
-</LinearLayout>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@android:color/transparent"
+    android:fillViewport="true" android:scrollbars="none" android:overScrollMode="never">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:gravity="center"
+        android:padding="@dimen/forecast_page_padding">
+        <TextView android:id="@+id/forecast_day" style="@style/ForecastText"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:gravity="center" android:textSize="@dimen/forecast_day_size"
+            android:fontFamily="sans-serif-light" />
+        <TextView android:id="@+id/forecast_date" style="@style/ForecastText"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" android:gravity="center"
+            android:textColor="#E6E9F8" android:textSize="15sp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/forecast_temperature_spacing"
+            android:orientation="horizontal" android:gravity="center" android:baselineAligned="true">
+            <TextView android:id="@+id/forecast_temperature" style="@style/ForecastText"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="@dimen/forecast_temperature_size" android:fontFamily="sans-serif-thin"
+                android:includeFontPadding="false" android:letterSpacing="-0.06" />
+            <TextView style="@style/ForecastText"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginStart="6dp" android:text="@string/temperature_unit"
+                android:textSize="28sp" android:fontFamily="sans-serif-light" />
+        </LinearLayout>
+        <TextView style="@style/ForecastText"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="10dp" android:gravity="center"
+            android:text="@string/average_label" android:textSize="11sp"
+            android:letterSpacing="0.2" android:textColor="#FFE1CA" />
+        <View android:layout_width="32dp" android:layout_height="1dp"
+            android:layout_marginTop="20dp" android:background="#70FFE1CA"
+            android:importantForAccessibility="no" />
+        <TextView style="@style/ForecastText"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="14dp" android:gravity="center"
+            android:text="@string/forecast_note" android:textSize="12sp"
+            android:lineSpacingExtra="4dp" android:textColor="#E3E8F5" />
+    </LinearLayout>
+</ScrollView>

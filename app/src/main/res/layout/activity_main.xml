@@ -1,76 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/main"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:clipToPadding="false"
-    tools:context=".MainActivity">
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="24dp">
-        <TextView
-            android:id="@+id/app_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/app_name"
-            android:textAppearance="?attr/textAppearanceHeadlineMedium" />
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/location"
-            android:textAppearance="?attr/textAppearanceTitleLarge" />
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/forecast_description"
-            android:textAppearance="?attr/textAppearanceBodyLarge" />
-        <ProgressBar
-            android:id="@+id/loading_indicator"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:indeterminate="true"
-            android:visibility="gone" />
-        <TextView
-            android:id="@+id/status_text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:accessibilityLiveRegion="polite"
-            android:textAppearance="?attr/textAppearanceBodyMedium" />
-        <LinearLayout
-            android:id="@+id/forecast_list"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="vertical"
-            android:visibility="gone" />
-        <Button
-            android:id="@+id/refresh_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:minHeight="48dp"
-            android:text="@string/refresh" />
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/average_explanation"
-            android:textAppearance="?attr/textAppearanceBodyMedium" />
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:autoLink="web"
-            android:text="@string/attribution"
-            android:textAppearance="?attr/textAppearanceBodySmall" />
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+    <com.example.weather_o_meter.AustinSkyView
+        android:id="@+id/sky_background"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:importantForAccessibility="no" />
+    <LinearLayout android:id="@+id/main"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:orientation="vertical">
+        <include layout="@layout/view_forecast_header" />
+        <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+            <androidx.viewpager2.widget.ViewPager2
+                android:id="@+id/forecast_pager"
+                android:layout_width="match_parent" android:layout_height="match_parent"
+                android:background="@android:color/transparent"
+                android:saveEnabled="false" />
+            <LinearLayout android:id="@+id/empty_state"
+                android:layout_width="match_parent" android:layout_height="match_parent"
+                android:gravity="center" android:orientation="vertical" android:padding="32dp">
+                <TextView style="@style/ForecastText" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="@string/empty_title"
+                    android:textSize="32sp" android:fontFamily="sans-serif-light" />
+                <TextView style="@style/ForecastText" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:layout_marginTop="12dp"
+                    android:gravity="center" android:text="@string/empty_description"
+                    android:textSize="15sp" />
+            </LinearLayout>
+        </FrameLayout>
+        <include layout="@layout/view_forecast_navigation" />
     </LinearLayout>
-</ScrollView>
+</FrameLayout>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:paddingStart="16dp" android:paddingEnd="16dp"
+    android:paddingBottom="12dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center_vertical">
+        <TextView style="@style/ForecastText" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:text="@string/swipe_hint" android:textSize="12sp"
+            android:textColor="#D6E4F5" />
+        <TextView android:id="@+id/page_position" style="@style/ForecastText"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textSize="12sp" android:letterSpacing="0.1" android:textColor="#FFE1CA" />
+    </LinearLayout>
+    <HorizontalScrollView android:id="@+id/week_scroller"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="12dp" android:fillViewport="true" android:scrollbars="none"
+        android:importantForAccessibility="no">
+        <LinearLayout android:id="@+id/week_strip"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp"
+        android:layout_marginTop="16dp" android:orientation="horizontal">
+        <com.google.android.material.button.MaterialButton android:id="@+id/previous_button"
+            style="@style/ForecastIconControl" android:layout_width="48dp" android:layout_height="48dp"
+            android:contentDescription="@string/previous_day" app:icon="@drawable/ic_previous" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/today_button"
+            style="@style/ForecastControl" android:layout_width="0dp" android:layout_height="48dp"
+            android:layout_weight="1" android:layout_marginStart="10dp" android:layout_marginEnd="10dp"
+            android:text="@string/today" android:contentDescription="@string/return_today"
+            app:icon="@drawable/ic_today" app:iconGravity="textStart" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/next_button"
+            style="@style/ForecastIconControl" android:layout_width="48dp" android:layout_height="48dp"
+            android:contentDescription="@string/next_day" app:icon="@drawable/ic_next" />
+    </LinearLayout>
+    <TextView android:id="@+id/weather_credit" style="@style/ForecastText"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="14dp" android:gravity="center"
+        android:text="@string/credit_short" android:textSize="11sp" android:textColor="#B5CADF"
+        android:textColorLink="#F5D8C5" />
+</LinearLayout>
