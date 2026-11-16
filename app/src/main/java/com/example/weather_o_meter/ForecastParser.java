@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.TreeMap;
 
-/** Converts Open-Meteo's parallel hourly arrays into seven daily averages. */
+/** Calculates seven daily temperature averages and joins precipitation/wind summaries by local date. */
 public final class ForecastParser {
     public static final int FORECAST_DAYS = 7;
 
@@ -72,6 +72,7 @@ public final class ForecastParser {
         if (days.size() != FORECAST_DAYS) {
             throw new JSONException("Expected seven forecast dates.");
         }
+        Map<String, DailyDetails> dailyDetails = parseDailyDetails(response);
         List<DailyForecast> forecasts = new ArrayList<>();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
@@ -91,10 +92,79 @@ public final class ForecastParser {
             if (samples.count == 0 || Double.isInfinite(samples.sum)) {
                 throw new JSONException("No usable temperatures for a forecast date.");
             }
-            forecasts.add(new DailyForecast(entry.getKey(), samples.sum / samples.count));
+            DailyDetails details = dailyDetails.get(entry.getKey());
+            if (details == null) {
+                throw new JSONException("Daily precipitation/wind dates must match the temperature dates.");
+            }
+            forecasts.add(new DailyForecast(entry.getKey(), samples.sum / samples.count,
+                    details.precipitationChancePercent, details.maxWindMph));
             expectedDate.add(Calendar.DAY_OF_MONTH, 1);
         }
         return forecasts;
+    }
+
+    private static Map<String, DailyDetails> parseDailyDetails(JSONObject response) throws JSONException {
+        // Requiring the probability field also refreshes cached rainfall-total responses.
+        JSONObject daily = response.getJSONObject("daily");
+        JSONObject units = response.getJSONObject("daily_units");
+        String windUnit = units.getString("wind_speed_10m_max");
+        if (!"%".equals(units.getString("precipitation_probability_max"))
+                || !("mp/h".equals(windUnit) || "mph".equals(windUnit))) {
+            throw new JSONException("Expected precipitation probability in percent and wind speed in mph.");
+        }
+        JSONArray dates = daily.getJSONArray("time");
+        JSONArray chances = daily.getJSONArray("precipitation_probability_max");
+        JSONArray wind = daily.getJSONArray("wind_speed_10m_max");
+        if (dates.length() != FORECAST_DAYS || chances.length() != dates.length()
+                || wind.length() != dates.length()) {
+            throw new JSONException("Daily dates, precipitation probability, and wind arrays must match.");
+        }
+        Map<String, DailyDetails> result = new TreeMap<>();
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        format.setLenient(false);
+        format.setTimeZone(TimeZone.getTimeZone("UTC"));
+        for (int i = 0; i < dates.length(); i++) {
+            String date = dates.getString(i);
+            ParsePosition position = new ParsePosition(0);
+            if (!date.matches("\\d{4}-\\d{2}-\\d{2}")
+                    || format.parse(date, position) == null || position.getIndex() != date.length()
+                    || result.containsKey(date)) {
+                throw new JSONException("Invalid or duplicate daily date.");
+            }
+            // The API already returns a 0-100 percentage: do not multiply by 100
+            // or derive probability from rainfall amounts.
+            Double chance = optionalNonnegativeNumber(chances, i);
+            if (chance != null && chance > 100) {
+                throw new JSONException("Precipitation probability must be between 0 and 100.");
+            }
+            result.put(date, new DailyDetails(chance, optionalNonnegativeNumber(wind, i)));
+        }
+        return result;
+    }
+
+    private static Double optionalNonnegativeNumber(JSONArray values, int index) throws JSONException {
+        if (values.isNull(index)) {
+            return null;
+        }
+        Object value = values.get(index);
+        if (!(value instanceof Number)) {
+            throw new JSONException("Invalid daily measurement.");
+        }
+        double number = ((Number) value).doubleValue();
+        if (Double.isNaN(number) || Double.isInfinite(number) || number < 0) {
+            throw new JSONException("Daily precipitation and wind measurements must be finite and nonnegative.");
+        }
+        return number;
+    }
+
+    private static final class DailyDetails {
+        final Double precipitationChancePercent;
+        final Double maxWindMph;
+
+        DailyDetails(Double precipitationChancePercent, Double maxWindMph) {
+            this.precipitationChancePercent = precipitationChancePercent;
+            this.maxWindMph = maxWindMph;
+        }
     }
 
     private static final class Samples {

@@ -31,9 +31,7 @@
             android:layout_marginTop="10dp" android:gravity="center"
             android:text="@string/average_label" android:textSize="11sp"
             android:letterSpacing="0.2" android:textColor="#FFE1CA" />
-        <View android:layout_width="32dp" android:layout_height="1dp"
-            android:layout_marginTop="20dp" android:background="#70FFE1CA"
-            android:importantForAccessibility="no" />
+        <include layout="@layout/view_weather_metrics" />
         <TextView style="@style/ForecastText"
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="14dp" android:gravity="center"

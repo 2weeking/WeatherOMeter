@@ -6,9 +6,12 @@ import org.json.JSONObject;
 import org.junit.Test;
 
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertNull;
 
 public class ForecastParserTest {
     private JSONObject week() throws JSONException {
@@ -20,8 +23,30 @@ public class ForecastParserTest {
                 temperatures.put(day + hour * 0.5);
             }
         }
-        return new JSONObject().put("hourly", new JSONObject()
-                .put("time", times).put("temperature_2m", temperatures));
+        return withDailyData(new JSONObject().put("hourly", new JSONObject()
+                .put("time", times).put("temperature_2m", temperatures)));
+    }
+
+    private JSONObject withDailyData(JSONObject response) throws JSONException {
+        Set<String> uniqueDates = new TreeSet<>();
+        JSONArray hourlyTimes = response.getJSONObject("hourly").getJSONArray("time");
+        for (int i = 0; i < hourlyTimes.length(); i++) {
+            uniqueDates.add(hourlyTimes.getString(i).substring(0, 10));
+        }
+        JSONArray dates = new JSONArray();
+        JSONArray chances = new JSONArray();
+        JSONArray wind = new JSONArray();
+        int day = 0;
+        for (String date : uniqueDates) {
+            dates.put(date);
+            chances.put(day * 15.0);
+            wind.put(5 + day * 2.0);
+            day++;
+        }
+        return response.put("daily_units", new JSONObject().put("precipitation_probability_max", "%")
+                .put("wind_speed_10m_max", "mp/h"))
+                .put("daily", new JSONObject().put("time", dates).put("precipitation_probability_max", chances)
+                        .put("wind_speed_10m_max", wind));
     }
 
     @Test
@@ -67,8 +92,8 @@ public class ForecastParserTest {
                 values.put(day == 15 ? -10 : 50);
             }
         }
-        JSONObject data = new JSONObject().put("hourly", new JSONObject()
-                .put("time", times).put("temperature_2m", values));
+        JSONObject data = withDailyData(new JSONObject().put("hourly", new JSONObject()
+                .put("time", times).put("temperature_2m", values)));
         List<DailyForecast> result = ForecastParser.parse(data.toString());
         assertEquals("2026-11-15", result.get(0).getDate());
         assertEquals(-10, result.get(0).getAverageFahrenheit(), 0.000001);
@@ -85,8 +110,8 @@ public class ForecastParserTest {
             times.put(date + "T00:00");
             values.put(42);
         }
-        JSONObject data = new JSONObject().put("hourly", new JSONObject()
-                .put("time", times).put("temperature_2m", values));
+        JSONObject data = withDailyData(new JSONObject().put("hourly", new JSONObject()
+                .put("time", times).put("temperature_2m", values)));
         assertEquals("2027-01-04", ForecastParser.parse(data.toString()).get(6).getDate());
     }
 
@@ -146,5 +171,114 @@ public class ForecastParserTest {
         assertThrows(JSONException.class, () -> ForecastParser.parse("{}"));
         assertThrows(JSONException.class, () -> ForecastParser.parse(
                 "{\"hourly\":{\"time\":[],\"temperature_2m\":[]}}"));
+    }
+
+    @Test
+    public void readsEachDaysPrecipitationPercentageWithoutRescalingAndKeepsMaximumWind() throws Exception {
+        List<DailyForecast> result = ForecastParser.parse(week().toString());
+        for (int day = 0; day < 7; day++) {
+            assertEquals(day * 15.0, result.get(day).getPrecipitationChancePercent(), 0.000001);
+            assertEquals(5 + day * 2, result.get(day).getMaxWindMph(), 0.000001);
+        }
+    }
+
+    @Test
+    public void matchesDailyMeasurementsByDateEvenWhenDailyRowsAreReversed() throws Exception {
+        JSONObject data = week();
+        JSONObject daily = data.getJSONObject("daily");
+        for (String key : new String[]{"time", "precipitation_probability_max", "wind_speed_10m_max"}) {
+            JSONArray original = daily.getJSONArray(key);
+            JSONArray reversed = new JSONArray();
+            for (int i = original.length() - 1; i >= 0; i--) {
+                reversed.put(original.get(i));
+            }
+            daily.put(key, reversed);
+        }
+        List<DailyForecast> result = ForecastParser.parse(data.toString());
+        assertEquals("2026-11-15", result.get(0).getDate());
+        assertEquals(0, result.get(0).getPrecipitationChancePercent(), 0.000001);
+        assertEquals(5, result.get(0).getMaxWindMph(), 0.000001);
+        assertEquals(90, result.get(6).getPrecipitationChancePercent(), 0.000001);
+        assertEquals(17, result.get(6).getMaxWindMph(), 0.000001);
+    }
+
+    @Test
+    public void missingDailyValuesStayUnavailableInsteadOfBecomingZero() throws Exception {
+        JSONObject data = week();
+        JSONObject daily = data.getJSONObject("daily");
+        daily.getJSONArray("precipitation_probability_max").put(0, JSONObject.NULL);
+        daily.getJSONArray("wind_speed_10m_max").put(2, JSONObject.NULL);
+        List<DailyForecast> result = ForecastParser.parse(data.toString());
+        assertNull(result.get(0).getPrecipitationChancePercent());
+        assertEquals(15, result.get(1).getPrecipitationChancePercent(), 0.000001);
+        assertNull(result.get(2).getMaxWindMph());
+        assertEquals(5, result.get(0).getMaxWindMph(), 0.000001);
+        assertEquals(20.75, result.get(0).getAverageFahrenheit(), 0.000001);
+    }
+
+    @Test
+    public void rejectsMismatchedOrMissingDailyArrays() throws Exception {
+        JSONObject data = week();
+        data.getJSONObject("daily").getJSONArray("wind_speed_10m_max").remove(0);
+        assertThrows(JSONException.class, () -> ForecastParser.parse(data.toString()));
+        JSONObject missing = week();
+        missing.getJSONObject("daily").remove("precipitation_probability_max");
+        assertThrows(JSONException.class, () -> ForecastParser.parse(missing.toString()));
+    }
+
+    @Test
+    public void rejectsDailyDatesThatAreDuplicateInvalidOrDifferentFromHourlyDates() throws Exception {
+        for (String date : new String[]{"2026-11-16", "2026-02-30", "2026-11-22"}) {
+            JSONObject data = week();
+            data.getJSONObject("daily").getJSONArray("time").put(0, date);
+            assertThrows(JSONException.class, () -> ForecastParser.parse(data.toString()));
+        }
+    }
+
+    @Test
+    public void rejectsWrongUnitsInsteadOfMislabelingValues() throws Exception {
+        for (String key : new String[]{"precipitation_probability_max", "wind_speed_10m_max"}) {
+            JSONObject data = week();
+            data.getJSONObject("daily_units").put(key, key.contains("wind") ? "km/h" : "mm");
+            assertThrows(JSONException.class, () -> ForecastParser.parse(data.toString()));
+        }
+    }
+
+    @Test
+    public void rejectsNegativeNonnumericOrOutOfRangeDailyValues() throws Exception {
+        for (String key : new String[]{"precipitation_probability_max", "wind_speed_10m_max"}) {
+            for (Object invalid : new Object[]{-0.1, "unknown", true}) {
+                JSONObject data = week();
+                data.getJSONObject("daily").getJSONArray(key).put(0, invalid);
+                assertThrows(JSONException.class, () -> ForecastParser.parse(data.toString()));
+            }
+        }
+        for (double invalid : new double[]{100.1, 101, Double.MAX_VALUE}) {
+            JSONObject overflow = week();
+            overflow.getJSONObject("daily").getJSONArray("precipitation_probability_max").put(0, invalid);
+            assertThrows(JSONException.class, () -> ForecastParser.parse(overflow.toString()));
+        }
+    }
+
+    @Test
+    public void rejectsLegacyRainfallResponsesSoTheyWillBeRefreshed() throws Exception {
+        JSONObject oldResponse = week();
+        oldResponse.getJSONObject("daily").remove("precipitation_probability_max");
+        oldResponse.getJSONObject("daily_units").remove("precipitation_probability_max");
+        oldResponse.getJSONObject("daily").put("rain_sum", new JSONArray("[0.3,0,0,0,0,0,0]"));
+        oldResponse.getJSONObject("daily_units").put("rain_sum", "inch");
+        assertThrows(JSONException.class, () -> ForecastParser.parse(oldResponse.toString()));
+        oldResponse.remove("daily");
+        oldResponse.remove("daily_units");
+        assertThrows(JSONException.class, () -> ForecastParser.parse(oldResponse.toString()));
+    }
+
+    @Test
+    public void acceptsZeroAndOneHundredPercent() throws Exception {
+        JSONObject data = week();
+        data.getJSONObject("daily").getJSONArray("precipitation_probability_max").put(0, 0).put(1, 100);
+        List<DailyForecast> forecasts = ForecastParser.parse(data.toString());
+        assertEquals(0, forecasts.get(0).getPrecipitationChancePercent(), 0.000001);
+        assertEquals(100, forecasts.get(1).getPrecipitationChancePercent(), 0.000001);
     }
 }

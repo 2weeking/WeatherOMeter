@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:layout_marginTop="20dp" android:orientation="horizontal"
+    android:layout_marginStart="@dimen/bonus_metrics_horizontal_margin"
+    android:layout_marginEnd="@dimen/bonus_metrics_horizontal_margin"
+    android:gravity="center" android:baselineAligned="false">
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+        android:layout_weight="1" android:orientation="vertical" android:gravity="center"
+        android:paddingTop="4dp" android:paddingBottom="4dp">
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:minHeight="32dp">
+            <ImageView android:layout_width="22dp" android:layout_height="22dp"
+                android:src="@drawable/ic_rain" android:importantForAccessibility="no" />
+            <TextView android:id="@+id/precipitation_label" style="@style/ForecastText" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:layout_marginStart="6dp"
+                android:text="@string/precipitation_label" android:textSize="12sp" android:textColor="#C5E9FF"
+                android:maxLines="2" />
+        </LinearLayout>
+        <TextView android:id="@+id/forecast_precipitation_chance" style="@style/ForecastText"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="6dp" android:gravity="center" android:textSize="22sp"
+            android:fontFamily="sans-serif-medium" />
+    </LinearLayout>
+    <View android:layout_width="1dp" android:layout_height="36dp"
+        android:background="#40DCE9F8" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+        android:layout_weight="1" android:orientation="vertical" android:gravity="center"
+        android:paddingTop="4dp" android:paddingBottom="4dp">
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:minHeight="32dp">
+            <ImageView android:layout_width="22dp" android:layout_height="22dp"
+                android:src="@drawable/ic_wind" android:importantForAccessibility="no" />
+            <TextView android:id="@+id/wind_label" style="@style/ForecastText" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:layout_marginStart="6dp"
+                android:text="@string/wind_label" android:textSize="12sp" android:textColor="#FFE1CA" />
+        </LinearLayout>
+        <TextView android:id="@+id/forecast_wind" style="@style/ForecastText"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="6dp" android:gravity="center" android:textSize="22sp"
+            android:fontFamily="sans-serif-medium" />
+    </LinearLayout>
+</LinearLayout>

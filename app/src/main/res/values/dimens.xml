@@ -3,4 +3,5 @@
     <dimen name="forecast_day_size">36sp</dimen>
     <dimen name="forecast_page_padding">28dp</dimen>
     <dimen name="forecast_temperature_spacing">24dp</dimen>
+    <dimen name="bonus_metrics_horizontal_margin">0dp</dimen>
 </resources>

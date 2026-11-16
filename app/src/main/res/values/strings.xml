@@ -30,4 +30,11 @@
     <string name="empty_title">A little outlook.</string>
     <string name="empty_description">Your seven-day forecast will appear here.</string>
     <string name="credit_short"><a href="https://open-meteo.com/">Forecasts by Open-Meteo</a> · CC BY 4.0</string>
+    <string name="precipitation_label">Precipitation Chance</string>
+    <string name="wind_label">Max Wind</string>
+    <string name="precipitation_value">%1$.0f%%</string>
+    <string name="wind_value">%1$.1f mph</string>
+    <string name="measurement_unavailable">Unavailable</string>
+    <string name="precipitation_accessibility">%1$s. Highest hourly chance of precipitation for this day: %2$s.</string>
+    <string name="wind_accessibility">%1$s. Maximum forecast wind speed, excluding gusts: %2$s.</string>
 </resources>

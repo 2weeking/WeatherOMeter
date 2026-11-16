@@ -11,6 +11,8 @@ import android.graphics.Shader;
 import android.util.AttributeSet;
 import android.view.View;
 
+import androidx.annotation.NonNull;
+
 /** Decorative Austin-inspired twilight, independent of the actual weather forecast. */
 public final class AustinSkyView extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -49,7 +51,7 @@ public final class AustinSkyView extends View {
     }
 
     @Override
-    protected void onDraw(Canvas canvas) {
+    protected void onDraw(@NonNull Canvas canvas) {
         super.onDraw(canvas);
         float w = getWidth();
         float h = getHeight();

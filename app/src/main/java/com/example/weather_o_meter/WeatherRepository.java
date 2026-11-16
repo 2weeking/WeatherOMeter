@@ -12,6 +12,8 @@ public final class WeatherRepository {
     public static final String FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
             + "?latitude=30.28&longitude=-97.76"
             + "&hourly=temperature_2m&temperature_unit=fahrenheit"
+            + "&daily=precipitation_probability_max,wind_speed_10m_max"
+            + "&wind_speed_unit=mph"
             + "&timezone=America%2FChicago&forecast_days=7";
 
     public String fetchForecast() throws IOException {

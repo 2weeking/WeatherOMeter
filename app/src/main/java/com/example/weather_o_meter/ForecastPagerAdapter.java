@@ -1,6 +1,7 @@
 package com.example.weather_o_meter;
 
 import android.view.LayoutInflater;
+import android.content.Context;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -43,6 +44,21 @@ public final class ForecastPagerAdapter extends RecyclerView.Adapter<ForecastPag
                 R.string.temperature_value, forecast.getAverageFahrenheit()));
         holder.temperature.setContentDescription(holder.itemView.getContext().getString(
                 R.string.forecast_accessibility, holder.date.getText(), forecast.getAverageFahrenheit()));
+        Context context = holder.itemView.getContext();
+        Double chance = forecast.getPrecipitationChancePercent();
+        String chanceText = chance == null ? context.getString(R.string.measurement_unavailable)
+                : context.getString(R.string.precipitation_value, chance);
+        Double wind = forecast.getMaxWindMph();
+        String windText = wind == null ? context.getString(R.string.measurement_unavailable)
+                : context.getString(R.string.wind_value, wind);
+        // Always bind both values, including nulls, so a recycled slide cannot
+        // retain the previous day's precipitation chance or wind.
+        holder.precipitationChance.setText(chanceText);
+        holder.wind.setText(windText);
+        holder.precipitationChance.setContentDescription(context.getString(
+                R.string.precipitation_accessibility, holder.date.getText(), chanceText));
+        holder.wind.setContentDescription(context.getString(
+                R.string.wind_accessibility, holder.date.getText(), windText));
         ViewCompat.setAccessibilityHeading(holder.day, true);
     }
 
@@ -64,12 +80,16 @@ public final class ForecastPagerAdapter extends RecyclerView.Adapter<ForecastPag
         final TextView day;
         final TextView date;
         final TextView temperature;
+        final TextView precipitationChance;
+        final TextView wind;
 
         DayHolder(View view) {
             super(view);
             day = view.findViewById(R.id.forecast_day);
             date = view.findViewById(R.id.forecast_date);
             temperature = view.findViewById(R.id.forecast_temperature);
+            precipitationChance = view.findViewById(R.id.forecast_precipitation_chance);
+            wind = view.findViewById(R.id.forecast_wind);
         }
     }
 }

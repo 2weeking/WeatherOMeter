@@ -121,9 +121,13 @@ public class ForecastScreenTest {
             View page = recycler.findViewHolderForAdapterPosition(pager.getCurrentItem()).itemView;
             String date = ((TextView) page.findViewById(R.id.forecast_date)).getText().toString();
             String temperature = ((TextView) page.findViewById(R.id.forecast_temperature)).getText().toString();
+            String chance = ((TextView) page.findViewById(R.id.forecast_precipitation_chance)).getText().toString();
+            String wind = ((TextView) page.findViewById(R.id.forecast_wind)).getText().toString();
             assertFalse(date.isEmpty());
             assertTrue(temperature, temperature.matches("-?\\d+\\.\\d"));
-            value.set(date + " " + temperature);
+            assertTrue(chance, chance.matches("(?:100|\\d{1,2})%|Unavailable"));
+            assertTrue(wind, wind.matches("\\d+\\.\\d mph|Unavailable"));
+            value.set(date + " " + temperature + " " + chance + " " + wind);
         });
         return value.get();
     }
