@@ -1,6 +1,9 @@
 package com.example.weather_o_meter;
 
 import android.os.Bundle;
+import android.os.Build;
+import android.os.PowerManager;
+import android.animation.ValueAnimator;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
@@ -28,16 +31,22 @@ import java.net.SocketTimeoutException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.button.MaterialButton;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "WeatherOMeter";
     private static final String SAVED_RESPONSE = "forecast_response";
     private static final String SAVED_UPDATED = "forecast_updated";
     private static final String SAVED_PAGE = "forecast_page";
+    private static final String SAVED_HOURS = "forecast_hours";
     private static final TimeZone AUSTIN_TIME = TimeZone.getTimeZone("America/Chicago");
 
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
@@ -60,6 +69,13 @@ public class MainActivity extends AppCompatActivity {
     private long updatedAt;
     private boolean loading;
     private volatile boolean destroyed;
+    private List<DailyForecast> activeForecasts = new ArrayList<>();
+    private final Map<String, Integer> hourSelections = new HashMap<>();
+    private int[] restoredHours;
+    private boolean motionEnabled;
+    private MaterialButton motionButton;
+    private Button weekButton;
+    private BottomSheetDialog openSheet;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,11 +105,26 @@ public class MainActivity extends AppCompatActivity {
         refreshButton = findViewById(R.id.refresh_button);
         loadingIndicator = findViewById(R.id.loading_indicator);
         refreshButton.setOnClickListener(view -> loadForecast());
+        motionButton = findViewById(R.id.motion_button);
+        weekButton = findViewById(R.id.week_button);
+        motionEnabled = getSharedPreferences("weather_display", MODE_PRIVATE).getBoolean("motion", true);
+        motionButton.setOnClickListener(view -> {
+            motionEnabled = !motionEnabled;
+            getSharedPreferences("weather_display", MODE_PRIVATE).edit().putBoolean("motion", motionEnabled).apply();
+            applyMotion();
+        });
+        weekButton.setOnClickListener(view -> {
+            if (activeForecasts.isEmpty()) return;
+            if (openSheet != null) openSheet.dismiss();
+            openSheet = ForecastSheets.showWeek(this, activeForecasts, selectedDay,
+                    index -> forecastPager.setCurrentItem(index, true));
+        });
         todayButton.setOnClickListener(view -> forecastPager.setCurrentItem(0, true));
         previousButton.setOnClickListener(view -> forecastPager.setCurrentItem(selectedDay - 1, true));
         nextButton.setOnClickListener(view -> forecastPager.setCurrentItem(selectedDay + 1, true));
         ((TextView) findViewById(R.id.weather_credit)).setMovementMethod(LinkMovementMethod.getInstance());
         selectedDay = savedInstanceState == null ? 0 : savedInstanceState.getInt(SAVED_PAGE, 0);
+        restoredHours = savedInstanceState == null ? null : savedInstanceState.getIntArray(SAVED_HOURS);
         forecastPager.setOffscreenPageLimit(1);
         forecastPager.getChildAt(0).setOverScrollMode(View.OVER_SCROLL_NEVER);
         forecastPager.setPageTransformer((page, position) -> {
@@ -107,6 +138,7 @@ public class MainActivity extends AppCompatActivity {
             public void onPageSelected(int position) {
                 selectedDay = position;
                 updateNavigation();
+                applyAtmosphere();
             }
 
             @Override
@@ -141,6 +173,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (skyBackground != null) {
+            skyBackground.setActive(true);
+            applyMotion();
+        }
         // Reopening after midnight must start the week on the new Austin date.
         if (!loading && firstForecastDate != null
                 && !firstForecastDate.equals(todayInAustin())) {
@@ -157,6 +193,8 @@ public class MainActivity extends AppCompatActivity {
             lastResponse = null;
             firstForecastDate = null;
             forecastPager.setAdapter(null);
+            activeForecasts = new ArrayList<>();
+            hourSelections.clear();
             weekStrip.removeAllViews();
             selectedDay = 0;
             skyBackground.setScrollPosition(0);
@@ -201,6 +239,11 @@ public class MainActivity extends AppCompatActivity {
             page = 0;
         }
         firstForecastDate = forecasts.get(0).getDate();
+        activeForecasts = forecasts;
+        if (restoredHours != null && restoredHours.length == forecasts.size()) {
+            for (int i = 0; i < forecasts.size(); i++) hourSelections.put(forecasts.get(i).getDate(), restoredHours[i]);
+            restoredHours = null;
+        }
         weekStrip.removeAllViews();
         for (int i = 0; i < forecasts.size(); i++) {
             final int dayIndex = i;
@@ -223,17 +266,37 @@ public class MainActivity extends AppCompatActivity {
             params.setMarginEnd(dp(2));
             weekStrip.addView(tab, params);
         }
-        forecastPager.setAdapter(new ForecastPagerAdapter(forecasts));
+        forecastPager.setAdapter(new ForecastPagerAdapter(forecasts, hourSelections, new ForecastPagerAdapter.Listener() {
+            @Override public void onHourSelected(int position, int hourIndex) {
+                if (position == selectedDay) applyAtmosphere();
+            }
+            @Override public void onMetricSelected(int position, boolean precipitation) {
+                if (position < 0 || position >= activeForecasts.size()) return;
+                if (openSheet != null) openSheet.dismiss();
+                openSheet = ForecastSheets.showHours(MainActivity.this, activeForecasts.get(position), precipitation,
+                        index -> {
+                            ForecastPagerAdapter adapter = (ForecastPagerAdapter) forecastPager.getAdapter();
+                            if (adapter != null) {
+                                adapter.selectHour(position, index);
+                                applyAtmosphere();
+                            }
+                        });
+            }
+        }, motionAllowed()));
         forecastPager.setCurrentItem(page, false);
         selectedDay = page;
         skyBackground.setScrollPosition(page);
         findViewById(R.id.empty_state).setVisibility(View.GONE);
         updateNavigation();
+        applyAtmosphere();
+        applyMotion();
     }
 
     private void updateNavigation() {
         int count = forecastPager.getAdapter() == null ? 0 : forecastPager.getAdapter().getItemCount();
         todayButton.setEnabled(count > 0);
+        weekButton.setEnabled(count > 0);
+        weekButton.setAlpha(count > 0 ? 1 : 0.3f);
         previousButton.setEnabled(count > 0 && selectedDay > 0);
         nextButton.setEnabled(count > 0 && selectedDay < count - 1);
         previousButton.setAlpha(previousButton.isEnabled() ? 1 : 0.3f);
@@ -256,6 +319,41 @@ public class MainActivity extends AppCompatActivity {
 
     private int dp(float value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private void applyAtmosphere() {
+        if (selectedDay < 0 || selectedDay >= activeForecasts.size()) return;
+        ForecastPagerAdapter adapter = (ForecastPagerAdapter) forecastPager.getAdapter();
+        List<HourlyForecast> hours = activeForecasts.get(selectedDay).getHours();
+        if (adapter != null && !hours.isEmpty()) skyBackground.setForecast(hours.get(adapter.selectedHour(selectedDay)));
+    }
+
+    private boolean motionAllowed() {
+        PowerManager power = (PowerManager) getSystemService(POWER_SERVICE);
+        return motionEnabled && (Build.VERSION.SDK_INT < 26 || ValueAnimator.areAnimatorsEnabled())
+                && (power == null || !power.isPowerSaveMode());
+    }
+
+    private void applyMotion() {
+        boolean systemAllows = (Build.VERSION.SDK_INT < 26 || ValueAnimator.areAnimatorsEnabled());
+        PowerManager power = (PowerManager) getSystemService(POWER_SERVICE);
+        systemAllows &= power == null || !power.isPowerSaveMode();
+        motionButton.setEnabled(systemAllows);
+        motionButton.setContentDescription(getString(!systemAllows ? R.string.motion_system_off
+                : motionEnabled ? R.string.pause_motion : R.string.resume_motion));
+        motionButton.setIconResource(motionEnabled && systemAllows ? R.drawable.ic_motion_pause : R.drawable.ic_motion_play);
+        skyBackground.setMotionEnabled(motionAllowed());
+        if (forecastPager.getAdapter() instanceof ForecastPagerAdapter) {
+            ((ForecastPagerAdapter) forecastPager.getAdapter()).setMotionEnabled(motionAllowed());
+        }
+    }
+
+    @Override protected void onPause() {
+        if (skyBackground != null) skyBackground.setActive(false);
+        if (forecastPager != null && forecastPager.getAdapter() instanceof ForecastPagerAdapter) {
+            ((ForecastPagerAdapter) forecastPager.getAdapter()).setMotionEnabled(false);
+        }
+        super.onPause();
     }
 
     private void setLoading(boolean value) {
@@ -300,12 +398,17 @@ public class MainActivity extends AppCompatActivity {
             state.putString(SAVED_RESPONSE, lastResponse);
             state.putLong(SAVED_UPDATED, updatedAt);
             state.putInt(SAVED_PAGE, selectedDay);
+            int[] hours = new int[activeForecasts.size()];
+            ForecastPagerAdapter adapter = (ForecastPagerAdapter) forecastPager.getAdapter();
+            if (adapter != null) for (int i = 0; i < hours.length; i++) hours[i] = adapter.selectedHour(i);
+            state.putIntArray(SAVED_HOURS, hours);
         }
     }
 
     @Override
     protected void onDestroy() {
         destroyed = true;
+        if (openSheet != null) openSheet.dismiss();
         networkExecutor.shutdownNow();
         mainHandler.removeCallbacksAndMessages(null);
         super.onDestroy();

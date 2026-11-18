@@ -3,6 +3,8 @@ package com.example.weather_o_meter;
 import android.os.SystemClock;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.ScrollView;
+import android.os.Bundle;
 
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.core.app.ActivityScenario;
@@ -14,6 +16,7 @@ import org.junit.runner.RunWith;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -22,6 +25,9 @@ import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.action.ViewActions.swipeLeft;
 import static androidx.test.espresso.action.ViewActions.swipeRight;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
+import static androidx.test.espresso.matcher.ViewMatchers.withText;
+import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static org.hamcrest.Matchers.allOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -29,6 +35,98 @@ import static org.junit.Assert.assertTrue;
 /** Live emulator test for the gestures, day navigation, refresh, and recreation. */
 @RunWith(AndroidJUnit4.class)
 public class ForecastScreenTest {
+    @Test
+    public void exploresRealHoursDetailsAndWeekWithoutChangingDailyReadings() throws Exception {
+        try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)) {
+            awaitRequest(scenario); awaitPage(scenario,0);
+            AtomicReference<List<DailyForecast>> days=new AtomicReference<>();
+            scenario.onActivity(activity->{
+                Bundle state=new Bundle(); activity.onSaveInstanceState(state);
+                try { days.set(ForecastParser.parse(state.getString("forecast_response"))); }
+                catch(Exception error) { throw new AssertionError(error); }
+                View page=currentPage(activity);
+                ((ScrollView)page).scrollTo(0,page.findViewById(R.id.day_explorer).getTop());
+            });
+            String daily=readPage(scenario);
+            // Touch the right-hand hour of the 24-hour clock: 6 AM.
+            onView(allOf(withId(R.id.hour_dial),isDisplayed())).perform(
+                    new androidx.test.espresso.action.GeneralClickAction(
+                            androidx.test.espresso.action.Tap.SINGLE,view->{
+                                int[] location=new int[2]; view.getLocationOnScreen(location);
+                                return new float[]{location[0]+view.getWidth()/2f+Math.min(view.getWidth(),view.getHeight())*.35f,
+                                        location[1]+view.getHeight()/2f};
+                            },androidx.test.espresso.action.Press.FINGER));
+            AtomicReference<Integer> six=new AtomicReference<>();
+            for(int i=0;i<days.get().get(0).getHours().size();i++)
+                if(days.get().get(0).getHours().get(i).getHour()==6) six.set(i);
+            assertHour(scenario,days.get().get(0).getHours().get(six.get()));
+            assertEquals(daily,readPage(scenario));
+            scenario.recreate(); awaitPage(scenario,0);
+            assertHour(scenario,days.get().get(0).getHours().get(six.get()));
+
+            scenario.onActivity(activity->((ScrollView)currentPage(activity)).scrollTo(0,0));
+            onView(allOf(withId(R.id.precipitation_card),isDisplayed())).perform(click());
+            onView(withText(R.string.precipitation_explanation)).check(
+                    androidx.test.espresso.assertion.ViewAssertions.matches(isDisplayed()));
+            awaitSheet();
+            // Selecting midnight from the detail sheet must update the same day's dial.
+            onView(withText(WeatherUi.hour(0))).perform(click());
+            scenario.onActivity(activity->assertEquals("Detail sheet changed the stored hour",0,
+                    ((ForecastPagerAdapter)((ViewPager2)activity.findViewById(R.id.forecast_pager)).getAdapter()).selectedHour(0)));
+            assertHour(scenario,days.get().get(0).getHours().get(0));
+            assertEquals(daily,readPage(scenario));
+
+            scenario.onActivity(activity->((ScrollView)currentPage(activity)).scrollTo(0,0));
+            onView(allOf(withId(R.id.wind_card),isDisplayed())).perform(click());
+            onView(withText(R.string.wind_explanation)).check(
+                    androidx.test.espresso.assertion.ViewAssertions.matches(isDisplayed()));
+            awaitSheet();
+            onView(withText(R.string.close_sheet)).perform(click());
+            onView(withId(R.id.week_button)).perform(click());
+            awaitSheet();
+            String tomorrow=ForecastPagerAdapter.formatDate(days.get().get(1).getDate(),"EEE")+"\n"
+                    +ForecastPagerAdapter.formatDate(days.get().get(1).getDate(),"MMM d");
+            onView(withText(tomorrow)).perform(click()); awaitPage(scenario,1);
+            onView(withId(R.id.today_button)).perform(click()); awaitPage(scenario,0);
+            scenario.onActivity(activity->assertEquals("Returning to Today preserved the chosen hour",0,
+                    ((ForecastPagerAdapter)((ViewPager2)activity.findViewById(R.id.forecast_pager)).getAdapter()).selectedHour(0)));
+            assertHour(scenario,days.get().get(0).getHours().get(0));
+        }
+    }
+
+    private View currentPage(MainActivity activity) {
+        ViewPager2 pager=activity.findViewById(R.id.forecast_pager);
+        return ((RecyclerView)pager.getChildAt(0)).findViewHolderForAdapterPosition(pager.getCurrentItem()).itemView;
+    }
+    private void awaitSheet() {
+        onView(withId(com.google.android.material.R.id.design_bottom_sheet)).perform(new androidx.test.espresso.ViewAction() {
+            public org.hamcrest.Matcher<View> getConstraints() { return isDisplayed(); }
+            public String getDescription() { return "Wait for the detail sheet to finish opening"; }
+            public void perform(androidx.test.espresso.UiController controller,View view) {
+                com.google.android.material.bottomsheet.BottomSheetBehavior<?> behavior=
+                        com.google.android.material.bottomsheet.BottomSheetBehavior.from(view);
+                long deadline=SystemClock.uptimeMillis()+2500;
+                do { controller.loopMainThreadForAtLeast(50); }
+                while(behavior.getState()!=com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+                        && SystemClock.uptimeMillis()<deadline);
+                // The dialog window has its own entrance animation after the behavior settles.
+                controller.loopMainThreadForAtLeast(300);
+            }
+        });
+    }
+    private void assertHour(ActivityScenario<MainActivity> scenario,HourlyForecast hour) {
+        scenario.onActivity(activity->{
+            View page=currentPage(activity);
+            assertEquals(WeatherUi.hour(hour.getHour()),((TextView)page.findViewById(R.id.explorer_time)).getText().toString());
+            assertEquals(WeatherUi.temperature(activity,hour.getTemperatureFahrenheit()),
+                    ((TextView)page.findViewById(R.id.hourly_temperature)).getText().toString());
+            assertEquals(WeatherUi.chance(activity,hour.getPrecipitationChancePercent()),
+                    ((TextView)page.findViewById(R.id.hourly_chance)).getText().toString());
+            assertEquals(WeatherUi.wind(activity,hour.getWindMph()),
+                    ((TextView)page.findViewById(R.id.hourly_wind)).getText().toString());
+        });
+    }
+
     @Test
     public void exploresSevenDaysAndReturnsToToday() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {

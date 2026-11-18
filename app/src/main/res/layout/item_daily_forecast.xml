@@ -1,41 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent"
-    android:background="@android:color/transparent"
-    android:fillViewport="true" android:scrollbars="none" android:overScrollMode="never">
+    android:id="@+id/day_scroll" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@android:color/transparent" android:fillViewport="true"
+    android:scrollbars="none" android:overScrollMode="never">
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="vertical" android:gravity="center"
-        android:padding="@dimen/forecast_page_padding">
-        <TextView android:id="@+id/forecast_day" style="@style/ForecastText"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:gravity="center" android:textSize="@dimen/forecast_day_size"
-            android:fontFamily="sans-serif-light" />
-        <TextView android:id="@+id/forecast_date" style="@style/ForecastText"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="8dp" android:gravity="center"
-            android:textColor="#E6E9F8" android:textSize="15sp" />
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/forecast_temperature_spacing"
-            android:orientation="horizontal" android:gravity="center" android:baselineAligned="true">
-            <TextView android:id="@+id/forecast_temperature" style="@style/ForecastText"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:textSize="@dimen/forecast_temperature_size" android:fontFamily="sans-serif-thin"
-                android:includeFontPadding="false" android:letterSpacing="-0.06" />
-            <TextView style="@style/ForecastText"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:layout_marginStart="6dp" android:text="@string/temperature_unit"
-                android:textSize="28sp" android:fontFamily="sans-serif-light" />
+        android:orientation="vertical" android:padding="@dimen/forecast_page_padding">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                <TextView android:id="@+id/forecast_day" style="@style/ForecastText" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:textSize="@dimen/forecast_day_size" android:fontFamily="sans-serif-light" />
+                <TextView android:id="@+id/forecast_date" style="@style/ForecastText" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textColor="#D8E8F5" android:textSize="13sp" />
+            </LinearLayout>
+            <com.example.weather_o_meter.WeatherGlyphView android:id="@+id/condition_icon"
+                android:layout_width="76dp" android:layout_height="76dp" android:importantForAccessibility="no" />
         </LinearLayout>
-        <TextView style="@style/ForecastText"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="10dp" android:gravity="center"
-            android:text="@string/average_label" android:textSize="11sp"
-            android:letterSpacing="0.2" android:textColor="#FFE1CA" />
+        <TextView android:id="@+id/forecast_condition" style="@style/ForecastText"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp"
+            android:textSize="13sp" android:textColor="#D8E9F7" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:gravity="center" android:baselineAligned="true">
+            <TextView android:id="@+id/forecast_temperature" style="@style/ForecastText" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:textSize="@dimen/forecast_temperature_size"
+                android:fontFamily="sans-serif-thin" android:includeFontPadding="false" android:letterSpacing="-0.05" />
+            <TextView style="@style/ForecastText" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginStart="6dp" android:text="@string/temperature_unit" android:textSize="26sp" android:fontFamily="sans-serif-light" />
+        </LinearLayout>
+        <TextView style="@style/ForecastText" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:gravity="center" android:layout_marginTop="4dp" android:text="@string/average_label"
+            android:textSize="11sp" android:letterSpacing="0.16" android:textColor="#FFE1CA" />
+        <TextView android:id="@+id/forecast_range" style="@style/ForecastText" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:gravity="center" android:layout_marginTop="8dp"
+            android:textSize="13sp" android:textColor="#D9E8F8" />
         <include layout="@layout/view_weather_metrics" />
-        <TextView style="@style/ForecastText"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="14dp" android:gravity="center"
-            android:text="@string/forecast_note" android:textSize="12sp"
-            android:lineSpacingExtra="4dp" android:textColor="#E3E8F5" />
+        <LinearLayout android:id="@+id/day_explorer" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="18dp" android:background="@drawable/glass_card" android:orientation="vertical" android:padding="18dp">
+            <TextView style="@style/ForecastText" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="@string/day_explorer" android:textSize="12sp" android:letterSpacing="0.15" android:textColor="#DAE9FA" />
+            <TextView style="@style/ForecastText" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="6dp" android:text="@string/explorer_hint" android:textSize="12sp" android:textColor="#BDD3EA" />
+            <TextView android:id="@+id/explorer_time" style="@style/ForecastText" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="16dp" android:gravity="center" android:textSize="19sp" />
+            <com.example.weather_o_meter.DayDialView android:id="@+id/hour_dial" android:layout_width="match_parent"
+                android:layout_height="224dp" android:importantForAccessibility="no" />
+            <SeekBar android:id="@+id/hour_slider" android:layout_width="match_parent" android:layout_height="48dp"
+                android:contentDescription="@string/select_hour" android:progressTint="#FFD7AE" android:thumbTint="#FFF0D8"
+                android:progressBackgroundTint="#44B8D8EE" />
+            <TextView android:id="@+id/explorer_condition" style="@style/ForecastText" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:gravity="center" android:textSize="14sp" android:textColor="#E0EAF6" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:baselineAligned="false">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView style="@style/ForecastText" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:gravity="center" android:text="@string/hour_temp_label" android:textSize="11sp" android:textColor="#C1D9EE" />
+                    <TextView android:id="@+id/hourly_temperature" style="@style/ForecastText" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:gravity="center" android:layout_marginTop="6dp" android:textSize="18sp" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView style="@style/ForecastText" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:gravity="center" android:text="@string/hour_chance_label" android:textSize="11sp" android:textColor="#C1D9EE" />
+                    <TextView android:id="@+id/hourly_chance" style="@style/ForecastText" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:gravity="center" android:layout_marginTop="6dp" android:textSize="18sp" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView style="@style/ForecastText" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:gravity="center" android:text="@string/hour_wind_label" android:textSize="11sp" android:textColor="#C1D9EE" />
+                    <TextView android:id="@+id/hourly_wind" style="@style/ForecastText" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:gravity="center" android:layout_marginTop="6dp" android:textSize="18sp" />
+                </LinearLayout>
+            </LinearLayout>
+            <com.google.android.material.button.MaterialButton xmlns:app="http://schemas.android.com/apk/res-auto"
+                android:id="@+id/warmest_hour_button" style="@style/ForecastControl"
+                android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="18dp"
+                android:textSize="12sp" app:cornerRadius="18dp" />
+        </LinearLayout>
+        <TextView style="@style/ForecastText" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:gravity="center" android:text="@string/forecast_note"
+            android:textSize="11sp" android:lineSpacingExtra="3dp" android:textColor="#C8DAED" />
     </LinearLayout>
 </ScrollView>

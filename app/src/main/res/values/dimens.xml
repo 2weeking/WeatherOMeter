@@ -1,7 +1,7 @@
 <resources>
-    <dimen name="forecast_temperature_size">104sp</dimen>
-    <dimen name="forecast_day_size">36sp</dimen>
-    <dimen name="forecast_page_padding">28dp</dimen>
+    <dimen name="forecast_temperature_size">84sp</dimen>
+    <dimen name="forecast_day_size">32sp</dimen>
+    <dimen name="forecast_page_padding">20dp</dimen>
     <dimen name="forecast_temperature_spacing">24dp</dimen>
     <dimen name="bonus_metrics_horizontal_margin">0dp</dimen>
 </resources>

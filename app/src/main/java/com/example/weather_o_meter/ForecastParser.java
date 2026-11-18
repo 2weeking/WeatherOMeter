@@ -8,6 +8,7 @@ import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -29,8 +30,24 @@ public final class ForecastParser {
         JSONObject hourly = response.getJSONObject("hourly");
         JSONArray times = hourly.getJSONArray("time");
         JSONArray temperatures = hourly.getJSONArray("temperature_2m");
+        JSONArray chances = hourly.getJSONArray("precipitation_probability");
+        JSONArray speeds = hourly.getJSONArray("wind_speed_10m");
+        JSONArray directions = hourly.getJSONArray("wind_direction_10m");
+        JSONArray codes = hourly.getJSONArray("weather_code");
+        JSONArray daylight = hourly.getJSONArray("is_day");
         if (times.length() == 0 || times.length() != temperatures.length()) {
             throw new JSONException("Hourly times and temperatures must match.");
+        }
+        for (JSONArray values : new JSONArray[]{chances, speeds, directions, codes, daylight}) {
+            if (values.length() != times.length()) throw new JSONException("Hourly detail arrays must match timestamps.");
+        }
+        JSONObject hourlyUnits = response.getJSONObject("hourly_units");
+        String hourlyWindUnit = hourlyUnits.getString("wind_speed_10m");
+        if (!"°F".equals(hourlyUnits.getString("temperature_2m"))
+                || !"%".equals(hourlyUnits.getString("precipitation_probability"))
+                || !("mp/h".equals(hourlyWindUnit) || "mph".equals(hourlyWindUnit))
+                || !"°".equals(hourlyUnits.getString("wind_direction_10m"))) {
+            throw new JSONException("Unexpected hourly forecast units.");
         }
 
         // The requested timezone makes the date prefix an Austin calendar date.
@@ -53,19 +70,28 @@ public final class ForecastParser {
                 samples = new Samples();
                 days.put(date, samples);
             }
+            Double probability = bounded(chances, i, 100);
+            Double direction = bounded(directions, i, 360);
+            Double speed = optionalNonnegativeNumber(speeds, i);
+            Integer code = optionalInteger(codes, i);
+            Integer dayFlag = optionalInteger(daylight, i);
+            if (dayFlag != null && dayFlag != 0 && dayFlag != 1) throw new JSONException("Invalid daylight flag.");
+            Double temperatureValue = null;
+            if (!temperatures.isNull(i)) {
+                Object raw = temperatures.get(i);
+                if (!(raw instanceof Number)) throw new JSONException("Invalid hourly temperature.");
+                temperatureValue = ((Number) raw).doubleValue();
+                if (Double.isNaN(temperatureValue) || Double.isInfinite(temperatureValue)) {
+                    throw new JSONException("Non-finite hourly temperature.");
+                }
+            }
+            samples.hours.add(new HourlyForecast(timestamp, temperatureValue, probability, speed,
+                    direction, code, dayFlag == null ? null : dayFlag == 1));
             // Missing values are not zero degrees and must not enter the denominator.
-            if (temperatures.isNull(i)) {
+            if (temperatureValue == null) {
                 continue;
             }
-            Object value = temperatures.get(i);
-            if (!(value instanceof Number)) {
-                throw new JSONException("Invalid hourly temperature.");
-            }
-            double temperature = ((Number) value).doubleValue();
-            if (Double.isNaN(temperature) || Double.isInfinite(temperature)) {
-                throw new JSONException("Non-finite hourly temperature.");
-            }
-            samples.sum += temperature;
+            samples.sum += temperatureValue;
             samples.count++;
         }
 
@@ -96,8 +122,9 @@ public final class ForecastParser {
             if (details == null) {
                 throw new JSONException("Daily precipitation/wind dates must match the temperature dates.");
             }
+            samples.hours.sort(Comparator.comparing(HourlyForecast::getTime));
             forecasts.add(new DailyForecast(entry.getKey(), samples.sum / samples.count,
-                    details.precipitationChancePercent, details.maxWindMph));
+                    details.precipitationChancePercent, details.maxWindMph, details.direction, samples.hours));
             expectedDate.add(Calendar.DAY_OF_MONTH, 1);
         }
         return forecasts;
@@ -115,8 +142,10 @@ public final class ForecastParser {
         JSONArray dates = daily.getJSONArray("time");
         JSONArray chances = daily.getJSONArray("precipitation_probability_max");
         JSONArray wind = daily.getJSONArray("wind_speed_10m_max");
+        JSONArray direction = daily.getJSONArray("wind_direction_10m_dominant");
+        if (!"°".equals(units.getString("wind_direction_10m_dominant"))) throw new JSONException("Unexpected wind direction unit.");
         if (dates.length() != FORECAST_DAYS || chances.length() != dates.length()
-                || wind.length() != dates.length()) {
+                || wind.length() != dates.length() || direction.length() != dates.length()) {
             throw new JSONException("Daily dates, precipitation probability, and wind arrays must match.");
         }
         Map<String, DailyDetails> result = new TreeMap<>();
@@ -137,9 +166,22 @@ public final class ForecastParser {
             if (chance != null && chance > 100) {
                 throw new JSONException("Precipitation probability must be between 0 and 100.");
             }
-            result.put(date, new DailyDetails(chance, optionalNonnegativeNumber(wind, i)));
+            result.put(date, new DailyDetails(chance, optionalNonnegativeNumber(wind, i), bounded(direction, i, 360)));
         }
         return result;
+    }
+
+    private static Double bounded(JSONArray values, int index, double max) throws JSONException {
+        Double value = optionalNonnegativeNumber(values, index);
+        if (value != null && value > max) throw new JSONException("Hourly measurement outside its valid range.");
+        return value;
+    }
+
+    private static Integer optionalInteger(JSONArray values, int index) throws JSONException {
+        Double value = optionalNonnegativeNumber(values, index);
+        if (value == null) return null;
+        if (value != Math.rint(value) || value > Integer.MAX_VALUE) throw new JSONException("Expected an integer weather flag.");
+        return value.intValue();
     }
 
     private static Double optionalNonnegativeNumber(JSONArray values, int index) throws JSONException {
@@ -160,15 +202,18 @@ public final class ForecastParser {
     private static final class DailyDetails {
         final Double precipitationChancePercent;
         final Double maxWindMph;
+        final Double direction;
 
-        DailyDetails(Double precipitationChancePercent, Double maxWindMph) {
+        DailyDetails(Double precipitationChancePercent, Double maxWindMph, Double direction) {
             this.precipitationChancePercent = precipitationChancePercent;
             this.maxWindMph = maxWindMph;
+            this.direction = direction;
         }
     }
 
     private static final class Samples {
         double sum;
         int count;
+        final List<HourlyForecast> hours = new ArrayList<>();
     }
 }

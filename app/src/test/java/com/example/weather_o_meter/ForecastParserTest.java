@@ -14,6 +14,89 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertNull;
 
 public class ForecastParserTest {
+    @Test
+    public void keepsHourlyDetailsTogetherAndDerivesTrueRangeAndWarmestHour() throws Exception {
+        DailyForecast day=ForecastParser.parse(week().toString()).get(0);
+        assertEquals(24,day.getHours().size());
+        HourlyForecast hour=day.getHours().get(9);
+        assertEquals("2026-11-15T09:00",hour.getTime());
+        assertEquals(19.5,hour.getTemperatureFahrenheit(),0.000001);
+        assertEquals(27,hour.getPrecipitationChancePercent(),0.000001);
+        assertEquals(6.6,hour.getWindMph(),0.000001);
+        assertEquals(45,hour.getWindDirectionDegrees(),0.000001);
+        assertEquals(Integer.valueOf(0),hour.getWeatherCode());
+        assertEquals(Boolean.TRUE,hour.getDaylight());
+        assertEquals(15,day.getLowFahrenheit(),0.000001);
+        assertEquals(26.5,day.getHighFahrenheit(),0.000001);
+        assertEquals(23,day.getWarmestHourIndex());
+        assertThrows(UnsupportedOperationException.class,()->day.getHours().clear());
+    }
+
+    @Test
+    public void preservesMissingHourlyReadingsWithoutInventingWeatherOrChangingMeans() throws Exception {
+        JSONObject data=week();
+        JSONObject hourly=data.getJSONObject("hourly");
+        for(String key:new String[]{"temperature_2m","precipitation_probability","wind_speed_10m",
+                "wind_direction_10m","weather_code","is_day"}) hourly.getJSONArray(key).put(0,JSONObject.NULL);
+        DailyForecast day=ForecastParser.parse(data.toString()).get(0);
+        HourlyForecast hour=day.getHours().get(0);
+        assertEquals(24,day.getHours().size());
+        assertNull(hour.getTemperatureFahrenheit()); assertNull(hour.getPrecipitationChancePercent());
+        assertNull(hour.getWindMph()); assertNull(hour.getWindDirectionDegrees());
+        assertNull(hour.getWeatherCode()); assertNull(hour.getDaylight());
+        assertEquals(21,day.getAverageFahrenheit(),0.000001);
+        assertEquals(15.5,day.getLowFahrenheit(),0.000001);
+    }
+
+    @Test
+    public void rejectsInvalidHourlyDetailsAndMismatchedUnits() throws Exception {
+        String[] keys={"precipitation_probability","wind_speed_10m","wind_direction_10m","weather_code","is_day"};
+        double[] invalid={101,-1,361,2.5,2};
+        for(int i=0;i<keys.length;i++) {
+            JSONObject bad=week(); bad.getJSONObject("hourly").getJSONArray(keys[i]).put(0,invalid[i]);
+            assertThrows(JSONException.class,()->ForecastParser.parse(bad.toString()));
+            JSONObject truncated=week(); truncated.getJSONObject("hourly").getJSONArray(keys[i]).remove(0);
+            assertThrows(JSONException.class,()->ForecastParser.parse(truncated.toString()));
+        }
+        for(String key:new String[]{"temperature_2m","precipitation_probability","wind_speed_10m","wind_direction_10m"}) {
+            JSONObject bad=week(); bad.getJSONObject("hourly_units").put(key,"wrong unit");
+            assertThrows(JSONException.class,()->ForecastParser.parse(bad.toString()));
+        }
+    }
+
+    @Test
+    public void sortsUnorderedHoursWithoutDetachingTheirMeasurements() throws Exception {
+        JSONObject data=week(); JSONObject hourly=data.getJSONObject("hourly");
+        for(String key:new String[]{"time","temperature_2m","precipitation_probability","wind_speed_10m",
+                "wind_direction_10m","weather_code","is_day"}) {
+            JSONArray original=hourly.getJSONArray(key),reverse=new JSONArray();
+            for(int i=original.length()-1;i>=0;i--) reverse.put(original.get(i));
+            hourly.put(key,reverse);
+        }
+        HourlyForecast hour=ForecastParser.parse(data.toString()).get(0).getHours().get(2);
+        assertEquals(2,hour.getHour()); assertEquals(6,hour.getPrecipitationChancePercent(),0.000001);
+        assertEquals(Integer.valueOf(61),hour.getWeatherCode());
+        assertEquals(Boolean.FALSE,hour.getDaylight());
+    }
+
+    @Test
+    public void mapsWmoConditionsAndWindBearingsIncludingNorthWraparound() {
+        assertEquals(WeatherCondition.CLEAR,WeatherCondition.fromCode(0));
+        assertEquals(WeatherCondition.PARTLY_CLOUDY,WeatherCondition.fromCode(2));
+        assertEquals(WeatherCondition.CLOUDY,WeatherCondition.fromCode(3));
+        assertEquals(WeatherCondition.FOG,WeatherCondition.fromCode(48));
+        assertEquals(WeatherCondition.RAIN,WeatherCondition.fromCode(82));
+        assertEquals(WeatherCondition.SNOW,WeatherCondition.fromCode(86));
+        assertEquals(WeatherCondition.STORM,WeatherCondition.fromCode(99));
+        assertEquals(WeatherCondition.UNKNOWN,WeatherCondition.fromCode(null));
+        assertEquals(WeatherCondition.UNKNOWN,WeatherCondition.fromCode(123));
+        assertEquals("N",WeatherCondition.compassPoint(360.0));
+        assertEquals("N",WeatherCondition.compassPoint(359.0));
+        assertEquals("NE",WeatherCondition.compassPoint(45.0));
+        assertEquals("S",WeatherCondition.compassPoint(180.0));
+        assertEquals("—",WeatherCondition.compassPoint(null));
+    }
+
     private JSONObject week() throws JSONException {
         JSONArray times = new JSONArray();
         JSONArray temperatures = new JSONArray();
@@ -36,17 +119,31 @@ public class ForecastParserTest {
         JSONArray dates = new JSONArray();
         JSONArray chances = new JSONArray();
         JSONArray wind = new JSONArray();
+        JSONArray directions = new JSONArray();
         int day = 0;
         for (String date : uniqueDates) {
             dates.put(date);
             chances.put(day * 15.0);
             wind.put(5 + day * 2.0);
+            directions.put(day * 45.0);
             day++;
         }
+        JSONObject hourly = response.getJSONObject("hourly");
+        JSONArray hourChance = new JSONArray(), hourWind = new JSONArray(), hourDirection = new JSONArray();
+        JSONArray codes = new JSONArray(), daylight = new JSONArray();
+        for (int i=0;i<hourlyTimes.length();i++) {
+            int hour = Integer.parseInt(hourlyTimes.getString(i).substring(11,13));
+            hourChance.put(hour*3); hourWind.put(3+hour*.4); hourDirection.put((hour%8)*45);
+            codes.put(hour<6?61:hour<19?0:3); daylight.put(hour>=7 && hour<19?1:0);
+        }
+        hourly.put("precipitation_probability",hourChance).put("wind_speed_10m",hourWind)
+                .put("wind_direction_10m",hourDirection).put("weather_code",codes).put("is_day",daylight);
+        response.put("hourly_units",new JSONObject().put("temperature_2m","°F")
+                .put("precipitation_probability","%").put("wind_speed_10m","mp/h").put("wind_direction_10m","°"));
         return response.put("daily_units", new JSONObject().put("precipitation_probability_max", "%")
-                .put("wind_speed_10m_max", "mp/h"))
+                .put("wind_speed_10m_max", "mp/h").put("wind_direction_10m_dominant","°"))
                 .put("daily", new JSONObject().put("time", dates).put("precipitation_probability_max", chances)
-                        .put("wind_speed_10m_max", wind));
+                        .put("wind_speed_10m_max", wind).put("wind_direction_10m_dominant",directions));
     }
 
     @Test
@@ -186,7 +283,7 @@ public class ForecastParserTest {
     public void matchesDailyMeasurementsByDateEvenWhenDailyRowsAreReversed() throws Exception {
         JSONObject data = week();
         JSONObject daily = data.getJSONObject("daily");
-        for (String key : new String[]{"time", "precipitation_probability_max", "wind_speed_10m_max"}) {
+        for (String key : new String[]{"time", "precipitation_probability_max", "wind_speed_10m_max", "wind_direction_10m_dominant"}) {
             JSONArray original = daily.getJSONArray(key);
             JSONArray reversed = new JSONArray();
             for (int i = original.length() - 1; i >= 0; i--) {
@@ -200,6 +297,8 @@ public class ForecastParserTest {
         assertEquals(5, result.get(0).getMaxWindMph(), 0.000001);
         assertEquals(90, result.get(6).getPrecipitationChancePercent(), 0.000001);
         assertEquals(17, result.get(6).getMaxWindMph(), 0.000001);
+        assertEquals(0, result.get(0).getDominantWindDegrees(), 0.000001);
+        assertEquals(270, result.get(6).getDominantWindDegrees(), 0.000001);
     }
 
     @Test
